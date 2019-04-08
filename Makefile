@@ -7,16 +7,17 @@ CFLAGS = -I -g -lpcap
 OBJ = main.o \
 	  argument_parser.o \
 	  tcp_scanner.o \
-	  udp_scanner.o
+	  udp_scanner.o \
+	  scanner.o
 EXECUTABLE = ipk-scan
 
 all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ 
+	$(CC) -o $@ $^ $(CFLAGS)
 
 %.o: %.cpp %.h
-	$(CC) $(CFLAGS) -c $<
+	$(CC) -c $< $(CFLAGS)
 
 .PHONY: run doc pack clean test
 run: $(EXECUTABLE)
