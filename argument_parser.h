@@ -33,9 +33,8 @@ private:
 
 public:
 
-    string tcp_ports;
-    string udp_ports;
-    string domain_name;
+    vector<int> tcp_ports;
+    vector<int> udp_ports;
     string ip_address;
 
     ArgumentParser(int argc, char **argv)
@@ -44,12 +43,24 @@ public:
         this->argv = argv;
     }
 
-    void parse_args();
+    bool parse_args();
 
-    void parse_tcp_ports(string raw_str);
+    bool try_set_port_range(vector<int>& ports, string raw_str);
+    bool parse_ports(vector<int> &ports, string raw_str, string protocol);
     bool is_digits(string str);
-    vector<string> split_by_comma(string str);
+    void split_ports(vector<int>& items, const string &str, char delim);
+    string parse_ipaddr(string str);
 
+};
+
+class InvalidPort
+{
+public:
+    string port;
+    InvalidPort(string port)
+    {
+        this->port = port;
+    }
 
 };
 

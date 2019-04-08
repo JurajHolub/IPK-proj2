@@ -6,12 +6,24 @@
  * @date April 2019
  */
 
+#define MIN_PORT_RANGE 0
+#define MAX_PORT_RANGE 65535
+
 #include "argument_parser.h"
 #include <sstream>
 #include <algorithm>
-#include <boost/algorithm/string.hpp>
 
-void ArgumentParser::parse_args()
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+bool ArgumentParser::parse_args()
 {
     list<string> args_left;
     for (int i = 1; i < argc; i++)
@@ -23,44 +35,126 @@ void ArgumentParser::parse_args()
         {
             args_left.remove("-pt");
             args_left.remove(string(optarg));
-            this->tcp_ports = string(optarg);
-            parse_tcp_ports(optarg);
+            if (not parse_ports(this->tcp_ports, optarg, "TCP"))
+                return false;
         }
         else if (opt == UDP_SCAN)
         {
             args_left.remove("-pu");
             args_left.remove(string(optarg));
-            this->udp_ports = string(optarg);
+            if (not parse_ports(this->udp_ports, optarg, "UDP"))
+                return false;
         }
     }
 
-    for (auto i: args_left)
-        cout << i << "\n";
+    if (args_left.size() == 1)
+        this->ip_address = parse_ipaddr(args_left.front());
 
+    cout << "TCP porty: ";
+    for (auto i : this->tcp_ports)
+        cout << i << ", ";
+    cout << "\n";
+
+    cout << "UDP porty: ";
+    for (auto i : this->udp_ports)
+        cout << i << ", ";
+    cout << "\n";
+
+    return true;
 }
 
-void ArgumentParser::parse_tcp_ports(string raw_str)
+bool ArgumentParser::try_set_port_range(vector<int>& ports, string raw_str)
 {
-    cout << raw_str << " ";
-    if (is_digits(raw_str))
-        cout << " valid string\n";
-    else
-        cout << " invalid string\n";
+    if (raw_str[0] == '-')
+        return false;
 
+    try
+    {
+        split_ports(ports, raw_str, '-');
+        if (ports.size() == 2) // it is range interval
+        {
+            int bot = ports.at(0);
+            int top = ports.at(1);
+            ports.clear();
+            for (int i = bot; i <= top; i++)
+                ports.push_back(i);
+        }
+    }
+    catch (InvalidPort& e)
+    {
+        return false;
+    }
+    return true;
+}
+
+bool ArgumentParser::parse_ports(vector<int> &ports, string raw_str, string protocol)
+{
+    bool success = try_set_port_range(ports, raw_str);
+    if (success)
+        return true;
+
+    try
+    {
+        split_ports(ports, raw_str, ',');
+        return true;
+    }
+    catch (InvalidPort& e)
+    {
+        cerr << "Invalid " << protocol << " port value: \"" << e.port << "\"\n";
+    }
+
+    return false;
+}
+
+void ArgumentParser::split_ports(vector<int>& items, const string &str, char delim)
+{
     int port;
-    istringstream is_int(raw_str);
-    is_int >> port;
-    cout << port << "\n";
-}
+    string item;
+    istringstream items_stream(str);
 
-vector<string> ArgumentParser::split_by_comma(std::string str)
-{
-    vector<string> items;
-    boost::split(items, str, [](char c){return c == ',';});
-    return items;
+    while (getline(items_stream, item, delim))
+    {
+        if (is_digits(item))
+        {
+            istringstream str_to_int(item);
+            str_to_int >> port;
+
+            if (MIN_PORT_RANGE <= port and port <= MAX_PORT_RANGE)
+                items.push_back(port);
+            else throw(InvalidPort(item));
+        }
+        else throw(InvalidPort(item));
+    }
 }
 
 bool ArgumentParser::is_digits(string str)
 {
     return str.find_first_not_of("0123456789") == string::npos;
+}
+
+string ArgumentParser::parse_ipaddr(string domain)
+{
+    //unsigned ipaddr;
+    //unsigned part0, part1, part2, part3;
+    //sscanf(str.c_str(), "%d.%d.%d.%d", &part0, &part1, &part2, &part3);
+    //ipaddr = (part0<<24) + (part1<<16) + (part2<<8)+ part3;
+    //cout << ipaddr << "\n";
+
+    //char buf[256];
+    //int host = gethostname(buf, sizeof(buf));
+    //if (host == -1)
+    //{
+    //    perror("gethostname");
+    //    exit(1);
+    //}
+    struct hostent *hostent = gethostbyname(domain.c_str());
+    if (hostent == NULL)
+    {
+        perror("gethostbyname");
+        exit(1);
+    }
+
+    char *ip_addr = inet_ntoa(*((struct in_addr*)hostent->h_addr_list[0]));
+
+    return string(ip_addr);
 }

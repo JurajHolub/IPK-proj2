@@ -3,9 +3,11 @@
 # @date 2019
 
 CC = g++
-CFLAGS = -I -g -Werror -Wall
+CFLAGS = -I -g -lpcap
 OBJ = main.o \
-	  argument_parser.o
+	  argument_parser.o \
+	  tcp_scanner.o \
+	  udp_scanner.o
 EXECUTABLE = ipk-scan
 
 all: $(EXECUTABLE)
