@@ -1,0 +1,8 @@
+# Usage
+
+sudo ./ipk-scan {-i <interface>} -pu <port-ranges> -pt <port-ranges> [<domain-name> | <IP-address>]
+
+# Dependencies
+- C++11 (g++ compiler)
+- libpcap (sudo apt-get install libpcap-dev)
+- execute like root

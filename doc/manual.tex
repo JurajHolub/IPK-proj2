@@ -1,0 +1,57 @@
+% IPK
+% Projekt 2
+% Juraj Holub
+% xholub40@stud.fit.vutbr.cz
+
+\documentclass[a4paper, 11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[czech]{babel}
+\usepackage[IL2]{fontenc}
+\usepackage{times}
+\usepackage[left=1.5cm,top=2.5cm,text={18cm,25cm}]{geometry}
+\usepackage[unicode]{hyperref}
+\usepackage{amsmath, amsthm, amsfonts, amssymb}
+\usepackage{dsfont}
+\setlength{\parindent}{1em}
+
+%\date{}
+
+\begin{document}
+\begin{titlepage}
+	\begin{center}
+		\Huge
+		\textsc{Fakulta informačních technologií \\
+			Vysoké učení technické v~Brně} \\
+		\vspace{\stretch{0.382}}
+		{\LARGE
+			Počítačové komunikace a sítě - IPK \\ 
+			\medskip \Large{Manuál k projektu č. 2}
+			\vspace{\stretch{0.618}}}
+	\end{center}
+		\setlength{\parindent}{0.3em}
+		{\Large 2019 \hfill
+			Juraj Holub (xholub40)}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Popis riešeného problému}
+Projekt implementuje TCP server, ktorý poskytuje odpovede na požiadavky (informácie o systémy na ktorom server beží). Odpovede serveru sú vo formáte \texttt{text/plain} alebo \texttt{application/json} a to podľa požiadavku v hlavičke \texttt{Accept} v dotaze od klienta. Komunikácia je možná pomocou webového prehliadača alebo nástrojmi typu \texttt{wget}, \texttt{curl} alebo \texttt{telnet}.
+\section{Návrh riešenia}
+Projek je implementovaný v jazyku Python3 a využíva knihovnu \href{https://docs.python.org/3/library/socket.html}{socket} pre TCP komunikáciu klient-server. Samotná implementácia je rozdelená na tri celky:
+\begin{itemize}
+	\item \textbf{HTTP parser}: Parsuje HTTP požiadavky klienta a vytvara HTTP odpovede.
+	\item \textbf{System stat}: Získava potrebné informácie zo systému o ktoré žiada klient (sieťové meno počítača, informácie o procesore atď.). Implementácia predpokladá že server pobeží na linuxovej distribúcií.
+	\item \textbf{Server}: TCP server ktorý v nekonečnom cykle prijíma HTTP požiadavky od klientov a zasiela im odpovede.
+\end{itemize}
+\section{Inštalácia, preklad a spustenie aplikácie}
+Aplikácia predpokladá linuxovú distribúciu a vyžaduje \texttt{python3}. Program sa spúšťa cez príkazový riadok pomocou \texttt{Makefile}: \texttt{"make run port=12345"} spustí server čakajúci na porte \texttt{12345}. Klient môže následne zasleť na daný port 4 rôzne požiadavky:
+\begin{itemize}
+	\item \texttt{http://servername:12345/hostname} - vracia sieťové meno počítača.
+	\item \texttt{http://servername:12345/cpu-name} - vracia informácie o procesore.
+	\item \texttt{http://servername:12345/load} - vracia aktuálne iformácie o záťaži procesoru.
+	\item \texttt{http://servername:12345/load?refresh=X} - vracia aktuálne informácie o záťaži procesoru a zaistí že klient si bude obnovovať informácie každých \texttt{X} sekúnd.
+\end{itemize}
+
+\end{document}
