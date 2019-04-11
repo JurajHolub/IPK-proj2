@@ -16,122 +16,159 @@
 #include <sys/socket.h>
 #include "udp_scanner.h"
 #include <cstring>
+#include <signal.h>
+#include <netinet/icmp6.h>
+#include <netinet/ip.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <time.h>
+#include <netinet/if_ether.h>
 
-UDP_Scanner::UDP_Scanner()
+pcap_t *handle;
+scan_result_e udp_scan_result = open;
+
+void udp_dst_not_response(int sig)
 {
-    this->src_port = 8080;
-    this->src_addr = get_local_ipaddr();
+    pcap_breakloop(handle);
 }
 
-int UDP_Scanner::send_packet(int dst_port, string dst_addr)
+void udp_packet_handler(
+        u_char *args,
+        const struct pcap_pkthdr *header,
+        const u_char *packet
+)
 {
-    int sd;
-    char buffer[PACKET_LEN];
-    ipheader_t *ip = (ipheader_t *)buffer;
-    udpheader_t *udp =(udpheader_t *)(buffer+ sizeof(ipheader_t));
-    struct sockaddr_in addr;
-    struct hostent *host;
+    struct ether_header *eth_header;
+    eth_header = (struct ether_header *) packet;
+    int link_layer_length;
+
+    int link_type = pcap_datalink(handle);
+    if (link_type == DLT_LINUX_SLL)
+    {
+        link_layer_length = 16; // It is Linux cooked capture -> always 16B
+    }
+    else if (ntohs(eth_header->ether_type) == ETHERTYPE_IP)
+    {
+        link_layer_length = 14; // It is ethernet -> always 14B
+    }
+    else
+    {
+        udp_scan_result = open;
+        return;
+    }
+
+    int ip_header_length;
+
+    const u_char *ip_header;
+    const u_char *icmp_header;
+
+    struct iphdr *iphdr;
+    struct icmp6_hdr *icmphdr;
+
+
+    ip_header = packet + link_layer_length;
+    iphdr = (struct iphdr*)ip_header;
+
+    ip_header_length = ((*ip_header) & 0x0F);
+    ip_header_length = ip_header_length * 4;
+
+    icmp_header = packet + link_layer_length + ip_header_length;
+    icmphdr = (struct icmp6_hdr*)(icmp_header);
+
+    if (iphdr->protocol != IPPROTO_ICMP)
+    {
+        udp_scan_result = open;
+        return;
+    }
+
+    if (icmphdr->icmp6_type == 3)
+    {
+        udp_scan_result = closed;
+    }
+}
+
+scan_result_e UDP_Scanner::scan_port(int dst_port, string dst_addr)
+{
+    memset(buffer, 0, BUFSIZE);
+
+    dest_address.sin_addr.s_addr = inet_addr(dst_addr.c_str());
+    dest_address.sin_port = htons(dst_port);
+    dest_address.sin_family = AF_INET;
+
+    create_ip_hdr(IPPROTO_UDP);
+
+    udphdr->source = htons((5000+rand()%100)); // source port is random
+    udphdr->dest = dest_address.sin_port;
+    udphdr->len = htons(sizeof(struct udphdr));
+
+    // udp checksum calculation, see https://www.binarytides.com/raw-sockets-c-code-linux/
+    struct csum_t udp_csum;
+    udp_csum.src_addr = iphdr->saddr;
+    udp_csum.dst_addr = iphdr->daddr;
+    udp_csum.pholder = 0;
+    udp_csum.proto = IPPROTO_UDP;
+    udp_csum.len = htons(sizeof(struct udphdr));
+    char *csum_buff = (char *)malloc(sizeof(struct csum_t) + sizeof(struct udphdr));
+    memcpy(csum_buff, (char*)&udp_csum, sizeof(struct csum_t));
+    memcpy(csum_buff+ sizeof(struct csum_t), udphdr, sizeof(struct udphdr));
+
+    udphdr->check = csum((unsigned short*)csum_buff, sizeof(struct csum_t) + sizeof(struct udphdr));
+
+
+    if ((sock = socket(PF_INET, SOCK_RAW, IPPROTO_UDP)) < 0)
+    {
+        perror("ERROR: socket");
+        exit(EXIT_FAILURE);
+    }
+
     int one = 1;
     const int *val = &one;
-    memset(buffer, 0, PACKET_LEN);
-
-    if (!(host = gethostbyname((dst_addr.c_str()))))
+    if (setsockopt(sock, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
     {
-        cerr << "No such host as " << dst_addr << "\n";
-        return 1;
+        perror("ERROR: setsockopt");
+        exit(EXIT_FAILURE);
     }
 
-    bzero((char *)&addr, sizeof(addr));
-    addr.sin_family = AF_INET;
-    bcopy((char *)host->h_addr_list[0], (char *)&addr.sin_addr.s_addr, host->h_length);
-    addr.sin_port = htons(dst_port);
+    char error_buffer[PCAP_ERRBUF_SIZE];
+    bpf_u_int32 subnet_mask, net;
+    string filter_exp = "icmp and src host "+dst_addr;
+    struct bpf_program filter;
 
-    sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sd <= 0)
+    handle = pcap_open_live(
+            iface.c_str(),
+            BUFSIZ,
+            true,
+            100,
+            error_buffer
+    );
+    if (handle == NULL)
     {
-        cerr << "Create socket error\n";
-        return 1;
+        fprintf(stderr, "Could not open device \"lo\": %s\n", error_buffer);
+        exit(2);
+    }
+    if (pcap_compile(handle, &filter, filter_exp.c_str(), 0, net) == -1)
+    {
+        printf("Bad filter - %s\n", pcap_geterr(handle));
+        exit(2);
+    }
+    if (pcap_setfilter(handle, &filter) == -1)
+    {
+        printf("Error setting filter - %s\n", pcap_geterr(handle));
+        exit(2);
+    }
+    if (sendto(sock, buffer, iphdr->tot_len, 0, (struct sockaddr *)&dest_address, sizeof(dest_address)) < 0)
+    {
+        perror("ERROR: sendto udp packet");
+        exit(EXIT_FAILURE);
     }
 
-    /*
-    sin.sin_family = AF_INET;
-    din.sin_family = AF_INET;
+    alarm(1);
+    signal(SIGALRM, udp_dst_not_response);
+    pcap_loop(handle, 1, udp_packet_handler, NULL);
 
-    sin.sin_port = htons(this->src_port);
-    din.sin_port = htons(this->dst_port);
+    pcap_close(handle);
+    close(sock);
 
-    sin.sin_addr.s_addr = inet_addr(this->src_addr.c_str());
-    din.sin_addr.s_addr = inet_addr(this->dst_addr.c_str());
-
-    ip->iph_ihl = 5;
-    ip->iph_ver = 4;
-    ip->iph_tos = 16;
-    ip->iph_len = sizeof(ipheader_t) + sizeof(udpheader_t);
-    ip->iph_ident = htons(54321);
-    ip->iph_ttl = 64;
-    ip->iph_protocol = 17; //UDP
-    ip->iph_sourceip = inet_addr(this->src_addr.c_str());
-    ip->iph_destip = inet_addr(this->dst_addr.c_str());
-    ip->iph_chksum = csum((unsigned short *)buffer, sizeof(ipheader_t) + sizeof(udpheader_t));
-
-    udp->udph_srcport = htons(this->src_port);
-    udp->udph_destport = htons(this->dst_port);
-    udp->udph_len = htons(sizeof(udpheader_t));
-
-    if (setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
-    {
-        cerr << "Setsocket err.\n";
-        return 1;
-    }
-*/
-    socklen_t serverlen = sizeof(addr);
-    if (sendto(sd, buffer, ip->iph_len, 0, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-    {
-        cerr << "Sendto error.\n";
-        return 1;
-    }
-
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(sd, &rfds);
-
-    if (select(sd+1, &rfds, NULL, NULL, NULL) == -1)
-    {
-        cerr << "Select error.\n";
-        return 1;
-    }
-
-
-    return 0;
-}
-
-unsigned short UDP_Scanner::csum(unsigned short *buf, int nwords)
-{
-    unsigned long sum;
-    for (sum = 0; nwords > 0; nwords--)
-        sum += *buf++;
-
-    sum = (sum >> 16) + (sum & 0xffff);
-    sum += (sum >> 16);
-    return (unsigned short)(~sum);
-}
-
-string UDP_Scanner::get_local_ipaddr()
-{
-    char hostbuffer[256];
-    struct hostent *hostentry;
-
-    if (gethostname(hostbuffer, sizeof(hostbuffer)) == -1)
-    {
-        cerr << "Gethostname error.\n";
-        return "";
-    }
-
-    if (!(hostentry = gethostbyname(hostbuffer)))
-    {
-        cerr << "Gethostbyname error\n";
-        return "";
-    }
-
-    return string(inet_ntoa(*((struct in_addr*)hostentry->h_addr_list[0])));
+    return udp_scan_result;
 }

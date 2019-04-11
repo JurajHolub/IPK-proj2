@@ -12,11 +12,10 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <iostream>
+#include <pcap.h>
 
-/**
- * @brief Simple checksum function inspired by binarytidies.
- * @see https://www.binarytides.com/raw-sockets-c-code-linux/
- */
+
 unsigned short Scanner::csum(unsigned short *buffer,int size)
 {
     long sum = 0;
@@ -39,6 +38,32 @@ unsigned short Scanner::csum(unsigned short *buffer,int size)
     sum += (sum >> 16);
 
     return ~sum;
+}
+
+void Scanner::create_ip_hdr(int transport_layer)
+{
+    if (transport_layer == IPPROTO_TCP)
+    {
+        iphdr->tot_len = sizeof(struct iphdr) + sizeof(struct tcphdr);
+        iphdr->protocol = IPPROTO_TCP;
+    }
+    else if (transport_layer == IPPROTO_UDP)
+    {
+        iphdr->tot_len = sizeof(struct iphdr) + sizeof(struct udphdr);
+        iphdr->protocol = IPPROTO_UDP;
+    }
+
+    iphdr->ihl = 5;
+    iphdr->version = 4;
+    iphdr->tos = 0;
+    iphdr->id = htons(20290); // port of this packet -> from range 49152 – 65535:Dynamic and/or Private Ports
+    iphdr->frag_off = 0;
+    iphdr->ttl = 64; // 64 hops
+    iphdr->check = 0;
+    iphdr->saddr = inet_addr(get_local_ipaddr().c_str());
+    iphdr->daddr = dest_address.sin_addr.s_addr;
+    iphdr->check = csum((unsigned short*)buffer, iphdr->tot_len);
+
 }
 
 string Scanner::get_local_ipaddr()

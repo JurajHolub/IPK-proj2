@@ -1,6 +1,6 @@
 /**
- * @file udp_scanner.cpp
- * @brief Udp port scanner.
+ * @file udp_scanner.h
+ * @brief Udp port scanner. Based on recieving ICMP port unreachable.
  * @author Juraj Holub <xholub40>
  * @project IPK - project 2
  * @date April 2019
@@ -10,46 +10,30 @@
 #define PROJ2_UDP_SCANNER_H
 
 #include <iostream>
-
-#define PACKET_LEN 512
+#include "scanner.h"
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/ip.h>
+#include <pcap.h>
 
 using namespace std;
 
-struct ipheader_t {
-    unsigned char       iph_ihl:5, iph_ver:4;
-    unsigned char       iph_tos;
-    unsigned short int  iph_len;
-    unsigned short int  iph_ident;
-    unsigned char       iph_flag;
-    unsigned short int  iph_offset;
-    unsigned char       iph_ttl;
-    unsigned char       iph_protocol;
-    unsigned short int  iph_chksum;
-    unsigned int        iph_sourceip;
-    unsigned int        iph_destip;
-};
-
-struct udpheader_t {
-    unsigned short int udph_srcport;
-    unsigned short int udph_destport;
-    unsigned short int udph_len;
-    unsigned short int udph_chksum;
-};
-
-class UDP_Scanner {
+class UDP_Scanner : public Scanner{
 public:
 
-    int src_port;
-    int dst_port;
-    string src_addr;
-    string dst_addr;
+    UDP_Scanner(string iface):Scanner(iface)
+    {
+        this->iface = iface;
+        buffer = (char*)malloc(sizeof(char)*BUFSIZE);
+        iphdr = (struct iphdr*)buffer;
+        udphdr = (struct udphdr*)(buffer + sizeof(struct iphdr));
+    };
+    ~UDP_Scanner()
+    {
+        free(buffer);
+    };
 
-    UDP_Scanner();
-
-    int send_packet(int dst_port, string dst_addr);
-    string get_local_ipaddr();
-
-    unsigned short csum(unsigned short *buf, int nwords);
+    scan_result_e scan_port(int dst_port, string dst_addr);
 };
 
 #endif //PROJ2_UDP_SCANNER_H

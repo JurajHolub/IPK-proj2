@@ -1,6 +1,10 @@
-//
-// Created by juraj on 05/04/19.
-//
+/**
+ * @file tcp_scanner.h
+ * @brief Tcp port scanner. Based on sending SYN packets.
+ * @author Juraj Holub <xholub40>
+ * @project IPK - project 2
+ * @date April 2019
+ */
 
 #ifndef PROJ2_TCP_SCANNER_H
 #define PROJ2_TCP_SCANNER_H
@@ -10,30 +14,40 @@
 #include <netinet/ip.h>
 #include <pcap.h>
 #include "scanner.h"
+#include <string>
 
-#define BUFSIZE 4096
-
-struct tcp_csum_t {
-    u_int32_t src_addr;
-    u_int32_t dst_addr;
-    u_int8_t pholder;
-    u_int8_t proto;
-    u_int16_t len;
-};
-
+/**
+ * TCP scanner which using SYN packet.
+ */
 class TCP_Scanner : public Scanner{
-    char *buffer = (char*)malloc(sizeof(char)*BUFSIZ);
-    int sock;
-    struct iphdr *iphdr;
-    struct tcphdr *tcphdr;
-    struct sockaddr_in dest_address;
 public:
 
-    TCP_Scanner();
-    void create_ip_hdr();
+    TCP_Scanner(string iface):Scanner(iface)
+    {
+        this->iface = iface;
+        buffer = (char*)malloc(sizeof(char)*BUFSIZE);
+        iphdr = (struct iphdr*)buffer;
+        tcphdr = (struct tcphdr*)(buffer + sizeof(struct iphdr));
+    };
+    ~TCP_Scanner()
+    {
+        free(buffer);
+    };
+
+    /**
+     * Fill raw tcp header of packets which will be send for scanning purposes.
+     */
     void create_tcp_hdr();
 
+    /**
+     * Create TCP SYN packet and send it to destination port and addres and
+     * check if it is open/closed or filtered.
+     * @param dst_port Destination port.
+     * @param dst_addr Ip address of destination port.
+     * @return Result of scanning (open, closed, filtered).
+     */
     scan_result_e scan_port(int dst_port, string dst_addr);
 
 };
+
 #endif //PROJ2_TCP_SCANNER_H

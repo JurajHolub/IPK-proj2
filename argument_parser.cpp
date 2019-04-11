@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pcap.h>
 
 bool ArgumentParser::parse_args()
 {
@@ -29,6 +30,7 @@ bool ArgumentParser::parse_args()
     for (int i = 1; i < argc; i++)
         args_left.push_front(string(argv[i]));
 
+    int opt;
     while ((opt = getopt_long_only(argc, argv, "", long_options, nullptr)) != -1)
     {
         if (opt == TCP_SCAN)
@@ -45,20 +47,19 @@ bool ArgumentParser::parse_args()
             if (not parse_ports(this->udp_ports, optarg, "UDP"))
                 return false;
         }
+        else if (opt == IFACE)
+        {
+            args_left.remove("-i");
+            args_left.remove(string(optarg));
+            this->iface = string(optarg);
+        }
     }
 
     if (args_left.size() == 1)
         this->ip_address = parse_ipaddr(args_left.front());
 
-    cout << "TCP porty: ";
-    for (auto i : this->tcp_ports)
-        cout << i << ", ";
-    cout << "\n";
-
-    cout << "UDP porty: ";
-    for (auto i : this->udp_ports)
-        cout << i << ", ";
-    cout << "\n";
+    if (this->iface.empty()) // user not set iface so I found one by myself
+        this->iface = get_iface();
 
     return true;
 }
@@ -134,19 +135,6 @@ bool ArgumentParser::is_digits(string str)
 
 string ArgumentParser::parse_ipaddr(string domain)
 {
-    //unsigned ipaddr;
-    //unsigned part0, part1, part2, part3;
-    //sscanf(str.c_str(), "%d.%d.%d.%d", &part0, &part1, &part2, &part3);
-    //ipaddr = (part0<<24) + (part1<<16) + (part2<<8)+ part3;
-    //cout << ipaddr << "\n";
-
-    //char buf[256];
-    //int host = gethostname(buf, sizeof(buf));
-    //if (host == -1)
-    //{
-    //    perror("gethostname");
-    //    exit(1);
-    //}
     struct hostent *hostent = gethostbyname(domain.c_str());
     if (hostent == NULL)
     {
@@ -157,4 +145,28 @@ string ArgumentParser::parse_ipaddr(string domain)
     char *ip_addr = inet_ntoa(*((struct in_addr*)hostent->h_addr_list[0]));
 
     return string(ip_addr);
+}
+
+string ArgumentParser::get_iface()
+{
+    pcap_if_t *devices;
+    char errbuff[PCAP_ERRBUF_SIZE];
+
+    if (pcap_findalldevs(&devices, errbuff))
+    {
+        perror("pcap_findalldevs");
+        exit(1);
+    }
+
+    for (pcap_if_t *i = devices; i != NULL; i=i->next)
+    {
+        if (i->flags != PCAP_IF_LOOPBACK)
+        {
+            string name = i->name;
+            pcap_freealldevs(devices);
+            return name;
+        }
+    }
+    pcap_freealldevs(devices);
+    return "any";
 }

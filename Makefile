@@ -19,14 +19,9 @@ $(EXECUTABLE): $(OBJ)
 %.o: %.cpp %.h
 	$(CC) -c $< $(CFLAGS)
 
-.PHONY: run doc pack clean test
-run: $(EXECUTABLE)
-	./$(EXECUTABLE)
-
+.PHONY: pack clean
 pack:
-	cp doc/dokumentace.pdf . && zip xholub40.zip *.c *.h Makefile rozdeleni dokumentace.pdf
+	cp doc/manual.pdf . && tar -czvf xholub40.tar *.cpp *.h Makefile README manual.pdf
 
 clean:
 	rm -rf *.o *.out $(EXECUTABLE)
-test:
-	cd tests && bash test_outputs.bash
