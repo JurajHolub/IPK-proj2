@@ -25,8 +25,12 @@
 #include <netinet/if_ether.h>
 #include <signal.h>
 
+/**
+ * Pointer to created pcab filter. Used in pcap_dispatch() which wait for incoming packets.
+ */
 pcap_t *tcp_handle;
-scan_result_e tcp_scan_result = filtered;
+
+scan_result_e tcp_scan_result = filtered; ///< Result of scanning.
 
 /**
  * Callback function which handle situation if max time of waiting for response
@@ -42,9 +46,7 @@ void tcp_dst_not_response(int sig)
  * Parse incoming packets from scanned port. Two situations could happend:
  * 1. We recieve packet with flags SYN and ACK -> port is open.
  * 2. We recieve packet with flags ACK and RST -> port is closed.
- * @param args
- * @param header
- * @param packet
+ * @param packet Incoming packet.
  */
 void tcp_packet_handler(
         u_char *args,

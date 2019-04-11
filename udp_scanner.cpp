@@ -25,14 +25,25 @@
 #include <time.h>
 #include <netinet/if_ether.h>
 
+/**
+ * Pointer to created pcab filter. Used in pcap_dispatch() which wait for incoming packets.
+ */
 pcap_t *handle;
-scan_result_e udp_scan_result = open;
+scan_result_e udp_scan_result = open; ///< Result of scanning.
 
+/**
+ * Callback function which handle situation if max time of waiting for response
+ * packet is reached. If we didn't recieve ICMP packet than port is possibly open.
+ */
 void udp_dst_not_response(int sig)
 {
     pcap_breakloop(handle);
 }
 
+/**
+ * Parse incoming packets from scanned port. It must be ICMP packetype 3 (port unreachable).
+ * @param packet Incoming packet.
+ */
 void udp_packet_handler(
         u_char *args,
         const struct pcap_pkthdr *header,

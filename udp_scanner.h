@@ -18,6 +18,10 @@
 
 using namespace std;
 
+/**
+ * UDP port scanning. If scanned port send ICMP port unreachable packet
+ * than port is closed alse we assume it is open.
+ */
 class UDP_Scanner : public Scanner{
 public:
 
@@ -33,6 +37,13 @@ public:
         free(buffer);
     };
 
+    /**
+     * Create UDP packet and send it to destination port and addres and
+     * check if it is open/closed by waiting for ICMP port unreachabe packet.
+     * @param dst_port Destination port.
+     * @param dst_addr Ip address of destination port.
+     * @return Result of scanning (open, closed).
+     */
     scan_result_e scan_port(int dst_port, string dst_addr);
 };
 

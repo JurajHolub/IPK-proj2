@@ -19,6 +19,7 @@ using namespace std;
 
 int main(int argc, char **argv)
 {
+    // list where will be saved result of scanning, it will be printed at the end
     list<tuple<string, string>> scan_results;
 
     //parse command line arguments
@@ -36,7 +37,7 @@ int main(int argc, char **argv)
             scan_results.push_back(make_tuple(port+"/tcp", "open"));
         else if (res == closed)
             scan_results.push_back(make_tuple(port+"/tcp", "closed"));
-        else if (res == filtered)
+        else if (res == filtered)//scan possible filtered, try one more time
         {
             int second_try = tcp_scanner.scan_port(tcp_port, parser.ip_address); // try one more time
             if (second_try == open)
@@ -54,7 +55,7 @@ int main(int argc, char **argv)
     {
         string port = to_string(udp_port);
         int res;
-        for (int i = 0; i < 5; i++) // try 5 time if it is open
+        for (int i = 0; i < 5; i++) // try scan 5 time if it is open
         {
             res = udp_scanner.scan_port(udp_port, parser.ip_address);
             if (res == closed)
