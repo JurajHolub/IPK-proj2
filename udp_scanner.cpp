@@ -50,6 +50,8 @@ void udp_packet_handler(
         const u_char *packet
 )
 {
+    signal(SIGALRM, SIG_IGN);// i recieve msg, so it is not filtered, disable timer
+
     struct ether_header *eth_header;
     eth_header = (struct ether_header *) packet;
     int link_layer_length;
@@ -93,7 +95,7 @@ void udp_packet_handler(
         return;
     }
 
-    if (icmphdr->icmp6_type == 3)
+    if (icmphdr->icmp6_type == 3 and icmphdr->icmp6_code == 3)
     {
         udp_scan_result = closed;
     }
@@ -147,10 +149,10 @@ scan_result_e UDP_Scanner::scan_port(int dst_port, string dst_addr)
     struct bpf_program filter;
 
     handle = pcap_open_live(
-            iface.c_str(),
+            "any",
             BUFSIZ,
-            true,
-            100,
+            false,
+            1000,
             error_buffer
     );
     if (handle == NULL)
@@ -176,7 +178,7 @@ scan_result_e UDP_Scanner::scan_port(int dst_port, string dst_addr)
 
     alarm(1);
     signal(SIGALRM, udp_dst_not_response);
-    pcap_loop(handle, 1, udp_packet_handler, NULL);
+    pcap_dispatch(handle, 1, udp_packet_handler, NULL);
 
     pcap_close(handle);
     close(sock);

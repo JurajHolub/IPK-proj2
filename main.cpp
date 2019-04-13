@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     {
         string port = to_string(udp_port);
         int res;
-        for (int i = 0; i < 5; i++) // try scan 5 time if it is open
+        for (int i = 0; i < 3; i++) // try scan 3 time if it is open
         {
             res = udp_scanner.scan_port(udp_port, parser.ip_address);
             if (res == closed)

@@ -24,6 +24,7 @@
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <signal.h>
+#include <sys/un.h>
 
 /**
  * Pointer to created pcab filter. Used in pcap_dispatch() which wait for incoming packets.
@@ -54,6 +55,8 @@ void tcp_packet_handler(
         const u_char *packet
 )
 {
+    signal(SIGALRM, SIG_IGN);// i recieve msg, so it is not filtered, disable timer
+
     struct ether_header *eth_header;
     eth_header = (struct ether_header *) packet;
     int link_layer_length;
@@ -103,14 +106,11 @@ void tcp_packet_handler(
     //cout << "PSH: " << tcphdr->psh << "\n";
     //cout << "ACK: " << tcphdr->ack << "\n";
     //cout << "URG: " << tcphdr->urg << "\n";
+
     if (tcphdr->syn == 1 and tcphdr->ack == 1) // port is open
-    {
         tcp_scan_result = open;
-    }
     else if (tcphdr->ack == 1 and tcphdr->rst == 1) // port is closed
-    {
         tcp_scan_result = closed;
-    }
 }
 
 void TCP_Scanner::create_tcp_hdr()
@@ -173,13 +173,13 @@ scan_result_e TCP_Scanner::scan_port(int dst_port, string dst_addr)
     // Create pcap filter which waiting for packet from scanned port.
     char error_buffer[PCAP_ERRBUF_SIZE];
     bpf_u_int32 net;
-    string filter_exp = "tcp and src port "+to_string(dst_port)+" and host "+dst_addr;
+    string filter_exp = "tcp and src port "+to_string(dst_port)+" and src host "+dst_addr;
     struct bpf_program filter;
     tcp_handle = pcap_open_live(
-            iface.c_str(),
+            "any",
             BUFSIZ,
-            0,
-            100,
+            false,
+            1000,
             error_buffer
     );
     if (tcp_handle == NULL)
@@ -207,7 +207,7 @@ scan_result_e TCP_Scanner::scan_port(int dst_port, string dst_addr)
 
     alarm(1);//Set max waiting delay for response packet.
     signal(SIGALRM, tcp_dst_not_response);
-    pcap_dispatch(tcp_handle, 1, tcp_packet_handler, NULL);
+    pcap_loop(tcp_handle, 1, tcp_packet_handler, NULL);
 
     pcap_close(tcp_handle);
     close(sock);
