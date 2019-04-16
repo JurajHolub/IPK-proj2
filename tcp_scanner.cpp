@@ -55,8 +55,6 @@ void tcp_packet_handler(
         const u_char *packet
 )
 {
-    signal(SIGALRM, SIG_IGN);// i recieve msg, so it is not filtered, disable timer
-
     struct ether_header *eth_header;
     eth_header = (struct ether_header *) packet;
     int link_layer_length;
@@ -174,12 +172,13 @@ scan_result_e TCP_Scanner::scan_port(int dst_port, string dst_addr)
     char error_buffer[PCAP_ERRBUF_SIZE];
     bpf_u_int32 net;
     string filter_exp = "tcp and src port "+to_string(dst_port)+" and src host "+dst_addr;
+    //string filter_exp = "tcp and (tcp-syn) != 0 and tcp-ack != 0 and src port "+to_string(dst_port)+" and src host "+dst_addr;// localhost";
     struct bpf_program filter;
     tcp_handle = pcap_open_live(
             "any",
             BUFSIZ,
             false,
-            1000,
+            100,
             error_buffer
     );
     if (tcp_handle == NULL)
@@ -205,9 +204,7 @@ scan_result_e TCP_Scanner::scan_port(int dst_port, string dst_addr)
         exit(EXIT_FAILURE);
     }
 
-    alarm(1);//Set max waiting delay for response packet.
-    signal(SIGALRM, tcp_dst_not_response);
-    pcap_loop(tcp_handle, 1, tcp_packet_handler, NULL);
+    pcap_dispatch(tcp_handle, 1, tcp_packet_handler, NULL);
 
     pcap_close(tcp_handle);
     close(sock);

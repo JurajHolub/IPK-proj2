@@ -152,7 +152,7 @@ scan_result_e UDP_Scanner::scan_port(int dst_port, string dst_addr)
             "any",
             BUFSIZ,
             false,
-            1000,
+            100,
             error_buffer
     );
     if (handle == NULL)
@@ -178,7 +178,7 @@ scan_result_e UDP_Scanner::scan_port(int dst_port, string dst_addr)
 
     alarm(1);
     signal(SIGALRM, udp_dst_not_response);
-    pcap_dispatch(handle, 1, udp_packet_handler, NULL);
+    pcap_loop(handle, 1, udp_packet_handler, NULL);
 
     pcap_close(handle);
     close(sock);
