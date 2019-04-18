@@ -89,7 +89,7 @@ Na rozdiel od TCP SYN skenovania je UDP skenovanie portov všeobecne pomalšie a
 	\item \textbf{Otvorený} v opačnom prípade ale keďže nemáme žiadnu informáciu o tom či sa ICMP packet nestratil, tak skenovanie opakujeme viackrát.
 \end{itemize}
 \section{Testovanie}
-Pre testovanie bola ako referenčný nástroj použitá open source utilita \href{https://nmap.org/}{\textbf{nmap}} . Pre overenie správnosti zasielaných packetov sa využil analyzátor sieťových protokolov \href{https://www.wireshark.org/}{\textbf{wireshark}} . Príklad \ref{listing_nmap} ukazuje referenčný sken zvolených portov pomocou utility nmap. Naopak príklad \ref{listing_my_app} ukazuje sken portov pomocou tejto aplikácie. Výsledky skenovania sú zhodné ale za pozornosť stojí poukázať na fakt, že oba nástroje nedokázali pri skenovaní pomocou UDP packetov zistiť, že port 80 je otvorený.
+Pre testovanie bola ako referenčný nástroj použitá open source utilita \href{https://nmap.org/}{\textbf{nmap}} . Pre overenie správnosti zasielaných packetov sa využil analyzátor sieťových protokolov \href{https://www.wireshark.org/}{\textbf{wireshark}} . Príklad \ref{listing_nmap} ukazuje referenčný sken zvolených portov pomocou utility nmap. Naopak príklad \ref{listing_my_app} ukazuje sken portov pomocou tejto aplikácie. Výsledky skenovania sú zhodné s výsledkamy skenovania pomocou referenčného naśtroja nmap.
 
 \begin{lstlisting}[caption=Príklad skenovania pomocou utility nmap.]
 user@pc:~$ sudo nmap -sU -sS -p25,80 localhost
