@@ -149,7 +149,7 @@ scan_result_e UDP_Scanner::scan_port(int dst_port, string dst_addr)
     struct bpf_program filter;
 
     handle = pcap_open_live(
-            "any",
+            this->iface.c_str(),
             BUFSIZ,
             false,
             100,

@@ -25,6 +25,8 @@
 #include <netinet/if_ether.h>
 #include <signal.h>
 #include <sys/un.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 /**
  * Pointer to created pcab filter. Used in pcap_dispatch() which wait for incoming packets.
@@ -55,6 +57,8 @@ void tcp_packet_handler(
         const u_char *packet
 )
 {
+    signal(SIGALRM, SIG_IGN);// i recieve msg, so it is not filtered, disable timer
+
     struct ether_header *eth_header;
     eth_header = (struct ether_header *) packet;
     int link_layer_length;
@@ -157,15 +161,16 @@ scan_result_e TCP_Scanner::scan_port(int dst_port, string dst_addr)
     if ((sock = socket(PF_INET, SOCK_RAW, IPPROTO_TCP)) < 0)
     {
         perror("ERROR: socket");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     int one = 1;
     const int *val = &one;
+
     if (setsockopt(sock, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
     {
         perror("ERROR: setsockopt");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     // Create pcap filter which waiting for packet from scanned port.
@@ -175,7 +180,7 @@ scan_result_e TCP_Scanner::scan_port(int dst_port, string dst_addr)
     //string filter_exp = "tcp and (tcp-syn) != 0 and tcp-ack != 0 and src port "+to_string(dst_port)+" and src host "+dst_addr;// localhost";
     struct bpf_program filter;
     tcp_handle = pcap_open_live(
-            "any",
+            this->iface.c_str(),
             BUFSIZ,
             false,
             100,
@@ -184,27 +189,29 @@ scan_result_e TCP_Scanner::scan_port(int dst_port, string dst_addr)
     if (tcp_handle == NULL)
     {
         fprintf(stderr, "Could not open device \"lo\": %s\n", error_buffer);
-        exit(2);
+        exit(1);
     }
     if (pcap_compile(tcp_handle, &filter, filter_exp.c_str(), 0, net) == -1)
     {
-        printf("Bad filter - %s\n", pcap_geterr(tcp_handle));
-        exit(2);
+        fprintf(stderr, "Bad filter - %s\n", pcap_geterr(tcp_handle));
+        exit(1);
     }
     if (pcap_setfilter(tcp_handle, &filter) == -1)
     {
-        printf("Error setting filter - %s\n", pcap_geterr(tcp_handle));
-        exit(2);
+        fprintf(stderr, "Error setting filter - %s\n", pcap_geterr(tcp_handle));
+        exit(1);
     }
 
     // Send SYN packet
     if (sendto(sock, buffer, iphdr->tot_len, 0, (struct sockaddr *)&dest_address, sizeof(dest_address)) < 0)
     {
         perror("ERROR: sendto syn packet");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
-    pcap_dispatch(tcp_handle, 1, tcp_packet_handler, NULL);
+    alarm(1);
+    signal(SIGALRM, tcp_dst_not_response);
+    pcap_loop(tcp_handle, 1, tcp_packet_handler, NULL);
 
     pcap_close(tcp_handle);
     close(sock);

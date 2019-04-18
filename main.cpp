@@ -29,6 +29,8 @@ int main(int argc, char **argv)
 
     //scan tcp ports
     TCP_Scanner tcp_scanner = TCP_Scanner(parser.iface);
+    tcp_scanner.find_iface(parser.ip_address);
+
     for (auto tcp_port : parser.tcp_ports)
     {
         string port = to_string(tcp_port);
@@ -51,6 +53,7 @@ int main(int argc, char **argv)
 
     //scan udp ports
     UDP_Scanner udp_scanner = UDP_Scanner(parser.iface);
+    udp_scanner.find_iface(parser.ip_address);
     for (auto udp_port : parser.udp_ports)
     {
         string port = to_string(udp_port);

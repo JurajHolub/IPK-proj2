@@ -102,3 +102,43 @@ string Scanner::get_local_ipaddr()
 
     return string(buff);
 }
+
+void Scanner::find_iface(string dst_addr)
+{
+    char err[PCAP_ERRBUF_SIZE];
+    pcap_if_t *all_devs;
+    if (pcap_findalldevs(&all_devs, err) != 0)
+    {
+        perror("pcap_findalldevs");
+        exit(1);
+    }
+
+    for (pcap_if_t *i = all_devs; i != NULL; i = i->next)
+    {
+        char buff[INET6_ADDRSTRLEN];
+        for (pcap_addr_t *j = i->addresses; j != NULL; j = j->next)
+        {
+            if (j->addr->sa_family == AF_INET and string(i->name) != "lo")
+            {
+                this->iface = i->name;
+                this->ipv4_addr = inet_ntoa(((struct sockaddr_in*)j->addr)->sin_addr);
+            }
+            if (j->addr->sa_family == AF_INET and string(i->name) == "lo")
+                this->lo_addr = inet_ntoa(((struct sockaddr_in*)j->addr)->sin_addr);
+            //else if (j->addr->sa_family == AF_INET6)
+            //{
+            //    inet_ntop(AF_INET6, (void*)&(((struct sockaddr_in6*)j->addr)->sin6_addr), buff, sizeof(buff));
+            //    cout << i->name << " " << buff << "\n";
+            //}
+        }
+    }
+    
+    if (this->lo_addr == dst_addr)
+        this->iface = "any";
+
+    if (this->iface.empty())
+    {
+        fprintf(stderr, "No interface found!\n");
+        exit(1);
+    }
+}

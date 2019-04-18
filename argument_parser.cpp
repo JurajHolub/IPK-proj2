@@ -138,7 +138,7 @@ string ArgumentParser::parse_ipaddr(string domain)
     struct hostent *hostent = gethostbyname(domain.c_str());
     if (hostent == NULL)
     {
-        perror("gethostbyname");
+        herror("gethostbyname");
         exit(1);
     }
 

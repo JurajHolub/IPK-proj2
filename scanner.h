@@ -50,6 +50,9 @@ protected:
     struct udphdr *udphdr; ///< Udp header of packet in case of UDP scanning.
     struct sockaddr_in dest_address; ///< Address where will be packet send.
     string iface; ///< Name of ethernet interface.
+    string ipv4_addr; ///< IPv4 address of this machine.
+    string ipv6_addr; ///< IPv4 address of this machine.
+    string lo_addr; ///< IP addr of localhost.
 public:
 
     Scanner(string iface)
@@ -74,6 +77,7 @@ public:
      * @param transport_layer Type of transport layer IPPROTO_TCP / IPPROTO_UDP.
      */
     void create_ip_hdr(int transport_layer);
+    void find_iface(string dst_addr);
 };
 
 #endif //PROJ2_SCANNER_H
