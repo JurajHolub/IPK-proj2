@@ -1,5 +1,6 @@
 # Usage
 
+make
 sudo ./ipk-scan {-i <interface>} -pu <port-ranges> -pt <port-ranges> [<domain-name> | <IP-address>]
 
 # Dependencies
